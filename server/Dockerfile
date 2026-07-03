@@ -51,6 +51,9 @@ RUN --mount=type=cache,id=pnpm-cli,target=/buildcache/pnpm-store \
 FROM builder AS plugins
 
 ARG TARGETPLATFORM
+ARG GITHUB_TOKEN
+
+ENV GITHUB_TOKEN=${GITHUB_TOKEN}
 
 COPY --from=ghcr.io/jdx/mise:2026.3.12@sha256:0210678cbf58413806531a27adb2c7daf1c37238e56e8f7ea381d73521571775 /usr/local/bin/mise /usr/local/bin/mise
 
