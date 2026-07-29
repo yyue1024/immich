@@ -90,7 +90,9 @@ immich
 |-- huggingface
 |-- images
 |   |-- ax-immich-ml-aarch64.tar.gz
-|   `-- ax-immich-server-aarch64.tar.gz
+|   |-- ax-immich-server-aarch64.tar.gz
+|   |-- immich-postgres-aarch64.tar.gz
+|   `-- valkey-8-bookworm-aarch64.tar.gz
 |-- models
 `-- packages
     |-- axengine-0.1.3-py3-none-any.whl
@@ -115,13 +117,12 @@ cp deploy/example.env deploy/.env
 
 ### （3）启动 Server 服务（必做）
 
-- 加载 Server 的 Docker 镜像包：在 Images 目录有2个镜像，一个负责 Server 服务，一个用于ml服务，这里先启动 Server 服务。
+- 加载 Docker 镜像包：`images` 目录包含 Server、Postgres、Redis 以及 ML 镜像。启动 Server 服务前，需先导入 Server、Postgres、Redis 镜像。
 
 ```bash
-#AArch64
-docker load -i images/ax-immich-server-aarch64.tar.gz
-#X86
-docker load -i images/ax-immich-server-x86.tar.gz
+for image in images/*.tar.gz; do
+  docker load -i "$image"
+done
 ```
 
 - 并使用 Docker Compose 启动容器服务,会启动`immich_server`、 `immich_postgres`、 `immich_redis` 。若启动时无法访问部分网址，可参考前文**设置 Docker 代理**部分。
