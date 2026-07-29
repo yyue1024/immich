@@ -9,6 +9,5 @@ services:
       - ${AXERA_LIB_PATH:-/usr/lib/axcl}:/usr/lib/axcl:ro
     environment:
       LD_LIBRARY_PATH: /usr/lib/axcl:${LD_LIBRARY_PATH:-}
-    # Docker fails to start the container when a configured device path is missing.
-    # devices:
-    #   - ${AXERA_DEVICE_PATH:-/dev/ax0}:${AXERA_DEVICE_PATH:-/dev/ax0}
+    devices:
+      - ${AXCL_DEVICE_AX_MMB:-/dev/ax_mmb_dev}:/dev/ax_mmb_dev
