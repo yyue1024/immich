@@ -6,6 +6,7 @@ import { uploadManager } from '$lib/managers/upload-manager.svelte';
 import { uploadAssetsStore } from '$lib/stores/upload';
 import { UploadState } from '$lib/types';
 import * as utils from '$lib/utils';
+import { clearStoredAccessToken, setStoredAccessToken } from '$lib/utils/access-token';
 import { preferencesFactory } from '@test-data/factories/preferences-factory';
 import { fileUploadHandler } from './file-uploader';
 
@@ -17,6 +18,8 @@ describe('fileUploader error handling', () => {
 
   beforeEach(() => {
     vi.clearAllMocks();
+    clearStoredAccessToken();
+    document.cookie = 'immich_is_authenticated=; Max-Age=0; Path=/';
     vi.spyOn(uploadManager, 'getExtensions').mockReturnValue(['.jpg']);
     uploadAssetsStore.reset();
     authManager.reset();
@@ -68,5 +71,28 @@ describe('fileUploader error handling', () => {
     const items = get(uploadAssetsStore);
     expect(items.length).toBe(1);
     expect(items[0].state).toBe(UploadState.STARTED);
+  });
+
+  it('中继缺少认证 Cookie 时为上传请求添加 Bearer 认证', async () => {
+    authManager.setUser(mockUserObject);
+    setStoredAccessToken('session-token');
+    const uploadSpy = vi.spyOn(utils, 'uploadRequest').mockResolvedValue({ status: 200, data: mockUploadResponse });
+
+    await fileUploadHandler({ files: [mockFile] });
+
+    expect(uploadSpy).toHaveBeenCalledWith(
+      expect.objectContaining({ headers: { Authorization: 'Bearer session-token' } }),
+    );
+  });
+
+  it('局域网认证 Cookie 正常时不为上传请求添加 Bearer 认证', async () => {
+    authManager.setUser(mockUserObject);
+    setStoredAccessToken('session-token');
+    document.cookie = 'immich_is_authenticated=true; Path=/';
+    const uploadSpy = vi.spyOn(utils, 'uploadRequest').mockResolvedValue({ status: 200, data: mockUploadResponse });
+
+    await fileUploadHandler({ files: [mockFile] });
+
+    expect(uploadSpy).toHaveBeenCalledWith(expect.objectContaining({ headers: undefined }));
   });
 });

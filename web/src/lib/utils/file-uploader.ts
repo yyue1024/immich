@@ -16,6 +16,7 @@ import { addAssetsToAlbums } from '$lib/services/album.service';
 import { uploadAssetsStore } from '$lib/stores/upload';
 import { UploadState } from '$lib/types';
 import { uploadRequest } from '$lib/utils';
+import { getFallbackSessionKey } from '$lib/utils/access-token';
 import { ExecutorQueue } from '$lib/utils/executor-queue';
 import { asQueryString } from '$lib/utils/shared-links';
 import { handleError } from './handle-error';
@@ -212,11 +213,13 @@ async function fileUploader({
 
     if (!responseData) {
       const queryParams = asQueryString(authManager.params);
+      const fallbackAccessToken = authManager.isSharedLink ? undefined : getFallbackSessionKey();
 
       uploadAssetsStore.updateItem(deviceAssetId, { message: $t('asset_uploading') });
       const response = await uploadRequest<AssetMediaResponseDto>({
         url: getBaseUrl() + '/assets' + (queryParams ? `?${queryParams}` : ''),
         data: formData,
+        headers: fallbackAccessToken ? { Authorization: `Bearer ${fallbackAccessToken}` } : undefined,
         onUploadProgress: (event) => uploadAssetsStore.updateProgress(deviceAssetId, event.loaded, event.total),
       });
 

@@ -26,6 +26,7 @@ import { defaultLang, locales } from '$lib/constants';
 import { authManager } from '$lib/managers/auth-manager.svelte';
 import { downloadManager } from '$lib/managers/download-manager.svelte';
 import { alwaysLoadOriginalFile, lang } from '$lib/stores/preferences.store';
+import { getFallbackSessionKey } from '$lib/utils/access-token';
 import { isWebCompatibleImage } from '$lib/utils/asset-utils';
 import { handleError } from '$lib/utils/handle-error';
 import { convertBCP47, langs } from '$lib/utils/i18n';
@@ -57,6 +58,7 @@ interface UploadRequestOptions {
   url: string;
   method?: 'POST' | 'PUT';
   data: FormData;
+  headers?: Record<string, string>;
   onUploadProgress?: (event: ProgressEvent<XMLHttpRequestEventTarget>) => void;
 }
 
@@ -98,7 +100,7 @@ export const cancelUploadRequests = () => {
 };
 
 export const uploadRequest = async <T>(options: UploadRequestOptions): Promise<{ data: T; status: number }> => {
-  const { onUploadProgress: onProgress, data, url } = options;
+  const { onUploadProgress: onProgress, data, headers, url } = options;
   return new Promise((resolve, reject) => {
     const xhr = new XMLHttpRequest();
     const unsubscribe = trackUpload(() => xhr.abort());
@@ -124,6 +126,9 @@ export const uploadRequest = async <T>(options: UploadRequestOptions): Promise<{
 
     xhr.open(options.method || 'POST', url);
     xhr.responseType = 'json';
+    for (const [name, value] of Object.entries(headers ?? {})) {
+      xhr.setRequestHeader(name, value);
+    }
     xhr.send(data);
   });
 };
@@ -232,31 +237,43 @@ export const targetImageSize = (asset: AssetResponseDto, forceOriginal: boolean)
   return AssetMediaSize.Preview;
 };
 
+const getMediaAuthParams = () => {
+  if (authManager.isSharedLink) {
+    return authManager.params;
+  }
+
+  const sessionKey = getFallbackSessionKey();
+  return sessionKey ? { sessionKey } : {};
+};
+
 export const getAssetMediaUrl = (options: AssetUrlOptions) => {
   const { id, size, cacheKey: c, edited = true } = options;
   const isOriginal = size === AssetMediaSize.Original;
   const path = isOriginal ? getAssetOriginalPath(id) : getAssetThumbnailPath(id);
-  return createUrl(path, { ...authManager.params, size: isOriginal ? undefined : size, c, edited });
+  return createUrl(path, { ...getMediaAuthParams(), size: isOriginal ? undefined : size, c, edited });
 };
 
 export const getAssetPlaybackUrl = (options: AssetUrlOptions) => {
   const { id, cacheKey: c } = options;
-  return createUrl(getAssetPlaybackPath(id), { ...authManager.params, c });
+  return createUrl(getAssetPlaybackPath(id), { ...getMediaAuthParams(), c });
 };
 
 export const getAssetHlsUrl = (id: string) => {
-  return createUrl(`/assets/${id}/video/stream/main.m3u8`, authManager.params);
+  return createUrl(`/assets/${id}/video/stream/main.m3u8`, getMediaAuthParams());
 };
 
 export const getAssetHlsSessionUrl = (id: string, sessionId: string) => {
-  return createUrl(`/assets/${id}/video/stream/${sessionId}`, authManager.params);
+  return createUrl(`/assets/${id}/video/stream/${sessionId}`, getMediaAuthParams());
 };
 
 export const getProfileImageUrl = (user: UserResponseDto) =>
-  createUrl(getUserProfileImagePath(user.id), { updatedAt: user.profileChangedAt });
+  createUrl(getUserProfileImagePath(user.id), { ...getMediaAuthParams(), updatedAt: user.profileChangedAt });
 
 export const getPeopleThumbnailUrl = (person: PersonResponseDto, updatedAt?: string) =>
-  createUrl(getPeopleThumbnailPath(person.id), { updatedAt: updatedAt ?? person.updatedAt });
+  createUrl(getPeopleThumbnailPath(person.id), {
+    ...getMediaAuthParams(),
+    updatedAt: updatedAt ?? person.updatedAt,
+  });
 
 export const copyToClipboard = async (secret: string | unknown) => {
   const $t = get(t);

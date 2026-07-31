@@ -6,12 +6,11 @@ import {
   type UserAdminResponseDto,
   type UserPreferencesResponseDto,
 } from '@immich/sdk';
-import { browser } from '$app/environment';
 import { goto } from '$app/navigation';
 import { page } from '$app/state';
 import { eventManager } from '$lib/managers/event-manager.svelte';
 import { Route } from '$lib/route';
-import { clearStoredAccessToken, loadStoredAccessToken } from '$lib/utils/access-token';
+import { clearStoredAccessToken, hasAuthCookie, loadStoredAccessToken } from '$lib/utils/access-token';
 import { isSharedLinkRoute } from '$lib/utils/navigation';
 
 class AuthManager {
@@ -53,7 +52,7 @@ class AuthManager {
       return;
     }
 
-    if (!this.#hasAuthCookie() && !loadStoredAccessToken()) {
+    if (!hasAuthCookie() && !loadStoredAccessToken()) {
       return;
     }
 
@@ -118,21 +117,6 @@ class AuthManager {
   reset() {
     this.#user = undefined;
     this.#preferences = undefined;
-  }
-
-  #hasAuthCookie() {
-    if (!browser) {
-      return;
-    }
-
-    for (const cookie of document.cookie.split('; ')) {
-      const [name] = cookie.split('=');
-      if (name === 'immich_is_authenticated') {
-        return true;
-      }
-    }
-
-    return false;
   }
 }
 

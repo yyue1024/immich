@@ -1,9 +1,75 @@
 import { AssetTypeEnum } from '@immich/sdk';
-import { getAssetUrl, semverToName } from '$lib/utils';
+import { clearStoredAccessToken, setStoredAccessToken } from '$lib/utils/access-token';
+import { getAssetMediaUrl, getAssetUrl, semverToName, uploadRequest } from '$lib/utils';
 import { assetFactory } from '@test-data/factories/asset-factory';
 import { sharedLinkFactory } from '@test-data/factories/shared-link-factory';
 
 describe('utils', () => {
+  const resetAuthState = () => {
+    clearStoredAccessToken();
+    document.cookie = 'immich_is_authenticated=; Max-Age=0; Path=/';
+  };
+
+  beforeEach(resetAuthState);
+  afterEach(resetAuthState);
+
+  describe(getAssetMediaUrl.name, () => {
+    it('中继缺少认证 Cookie 时在媒体地址中添加会话密钥', () => {
+      setStoredAccessToken('session-token');
+
+      const url = getAssetMediaUrl({ id: crypto.randomUUID() });
+
+      expect(new URL(url, 'https://immich.example').searchParams.get('sessionKey')).toBe('session-token');
+    });
+
+    it('局域网认证 Cookie 正常时不在媒体地址中添加会话密钥', () => {
+      setStoredAccessToken('session-token');
+      document.cookie = 'immich_is_authenticated=true; Path=/';
+
+      const url = getAssetMediaUrl({ id: crypto.randomUUID() });
+
+      expect(new URL(url, 'https://immich.example').searchParams.has('sessionKey')).toBe(false);
+    });
+  });
+
+  describe(uploadRequest.name, () => {
+    it('将自定义请求头设置到上传 XHR', async () => {
+      const listeners = new Map<string, EventListener>();
+      const setRequestHeader = vi.fn();
+      const xhr = {
+        abort: vi.fn(),
+        addEventListener: vi.fn((type: string, listener: EventListener) => listeners.set(type, listener)),
+        open: vi.fn(),
+        readyState: 4,
+        response: { id: 'asset-id' },
+        responseType: '',
+        send: vi.fn(() => listeners.get('load')?.(new Event('load'))),
+        setRequestHeader,
+        status: 201,
+        statusText: 'Created',
+        upload: { addEventListener: vi.fn() },
+      };
+      vi.stubGlobal(
+        'XMLHttpRequest',
+        vi.fn(function () {
+          return xhr;
+        }),
+      );
+
+      try {
+        await uploadRequest({
+          url: '/api/assets',
+          data: new FormData(),
+          headers: { Authorization: 'Bearer session-token' },
+        });
+      } finally {
+        vi.unstubAllGlobals();
+      }
+
+      expect(setRequestHeader).toHaveBeenCalledWith('Authorization', 'Bearer session-token');
+    });
+  });
+
   describe(getAssetUrl.name, () => {
     it('should return thumbnail URL for static images', () => {
       const asset = assetFactory.build({

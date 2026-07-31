@@ -1,14 +1,25 @@
 import { defaults, setHeader } from '@immich/sdk';
-import { browser } from '$app/environment';
 import { setServiceWorkerAccessToken } from '$lib/utils/sw-messaging';
 
 const ACCESS_TOKEN_STORAGE_KEY = 'immich-web-access-token';
 const AUTHORIZATION_HEADER = 'Authorization';
+const AUTHENTICATION_COOKIE_NAME = 'immich_is_authenticated';
+
+export const hasAuthCookie = () => {
+  if (typeof document === 'undefined') {
+    return false;
+  }
+
+  return document.cookie.split('; ').some((cookie) => {
+    const [name, value] = cookie.split('=');
+    return name === AUTHENTICATION_COOKIE_NAME && !!value;
+  });
+};
 
 export const setStoredAccessToken = (accessToken: string) => {
   setHeader(AUTHORIZATION_HEADER, `Bearer ${accessToken}`);
 
-  if (!browser) {
+  if (typeof document === 'undefined') {
     return;
   }
 
@@ -21,7 +32,7 @@ export const setStoredAccessToken = (accessToken: string) => {
 };
 
 export const loadStoredAccessToken = () => {
-  if (!browser) {
+  if (typeof document === 'undefined') {
     return false;
   }
 
@@ -45,7 +56,7 @@ export const clearStoredAccessToken = () => {
     delete defaults.headers[AUTHORIZATION_HEADER.toLowerCase()];
   }
 
-  if (!browser) {
+  if (typeof document === 'undefined') {
     return;
   }
 
@@ -58,7 +69,7 @@ export const clearStoredAccessToken = () => {
 };
 
 export const getStoredAccessToken = () => {
-  if (!browser) {
+  if (typeof document === 'undefined') {
     return;
   }
 
@@ -68,3 +79,5 @@ export const getStoredAccessToken = () => {
     return;
   }
 };
+
+export const getFallbackSessionKey = () => (hasAuthCookie() ? undefined : getStoredAccessToken());
