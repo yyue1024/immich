@@ -16,6 +16,7 @@ import { eventManager } from '$lib/managers/event-manager.svelte';
 import { Route } from '$lib/route';
 import { maintenanceStore } from '$lib/stores/maintenance.store';
 import { notificationManager } from '$lib/stores/notification-manager.svelte';
+import { getStoredAccessToken } from '$lib/utils/access-token';
 import { createEventEmitter } from '$lib/utils/eventemitter';
 
 interface AppRestartEvent {
@@ -50,6 +51,10 @@ const websocket: Socket<Events> = io({
   reconnection: true,
   forceNew: true,
   autoConnect: false,
+  auth: (callback) => {
+    const accessToken = getStoredAccessToken();
+    callback(accessToken ? { accessToken } : {});
+  },
 });
 
 export const websocketStore = {

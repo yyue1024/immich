@@ -1,5 +1,5 @@
 import { BullModule } from '@nestjs/bullmq';
-import { Inject, Module, OnModuleDestroy, OnModuleInit } from '@nestjs/common';
+import { Inject, Module, OnModuleDestroy, OnModuleInit, UnauthorizedException } from '@nestjs/common';
 import { APP_FILTER, APP_GUARD, APP_INTERCEPTOR, APP_PIPE } from '@nestjs/core';
 import { ScheduleModule, SchedulerRegistry } from '@nestjs/schedule';
 import { ClsModule } from 'nestjs-cls';
@@ -9,7 +9,7 @@ import { ZodSerializerInterceptor, ZodValidationPipe } from 'nestjs-zod';
 import { commandsAndQuestions } from 'src/commands';
 import { IWorker } from 'src/constants';
 import { controllers } from 'src/controllers';
-import { ImmichWorker } from 'src/enum';
+import { ImmichHeader, ImmichWorker } from 'src/enum';
 import { MaintenanceAuthGuard } from 'src/maintenance/maintenance-auth.guard';
 import { MaintenanceHealthRepository } from 'src/maintenance/maintenance-health.repository';
 import { MaintenanceWebsocketRepository } from 'src/maintenance/maintenance-websocket.repository';
@@ -83,13 +83,27 @@ export class BaseModule implements OnModuleInit, OnModuleDestroy {
 
     this.queueService.setServices(services);
 
-    this.websocketRepository.setAuthFn(async (client) =>
-      this.authService.authenticate({
+    this.websocketRepository.setAuthFn(async (client) => {
+      const request = {
         headers: client.request.headers,
         queryParams: {},
         metadata: { adminRoute: false, sharedLinkRoute: false, uri: '/api/socket.io' },
-      }),
-    );
+      };
+
+      try {
+        return await this.authService.authenticate(request);
+      } catch (error: unknown) {
+        const accessToken = client.handshake.auth['accessToken'];
+        if (!(error instanceof UnauthorizedException) || typeof accessToken !== 'string' || accessToken.length === 0) {
+          throw error;
+        }
+
+        return this.authService.authenticate({
+          ...request,
+          headers: { ...request.headers, [ImmichHeader.SessionToken]: accessToken },
+        });
+      }
+    });
 
     this.eventRepository.setup({ services });
     await this.eventRepository.emit('AppBootstrap');

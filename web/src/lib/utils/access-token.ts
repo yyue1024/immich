@@ -1,5 +1,6 @@
 import { defaults, setHeader } from '@immich/sdk';
 import { browser } from '$app/environment';
+import { setServiceWorkerAccessToken } from '$lib/utils/sw-messaging';
 
 const ACCESS_TOKEN_STORAGE_KEY = 'immich-web-access-token';
 const AUTHORIZATION_HEADER = 'Authorization';
@@ -11,6 +12,7 @@ export const setStoredAccessToken = (accessToken: string) => {
     return;
   }
 
+  setServiceWorkerAccessToken(accessToken);
   try {
     localStorage.setItem(ACCESS_TOKEN_STORAGE_KEY, accessToken);
   } catch {
@@ -30,6 +32,7 @@ export const loadStoredAccessToken = () => {
     }
 
     setHeader(AUTHORIZATION_HEADER, `Bearer ${accessToken}`);
+    setServiceWorkerAccessToken(accessToken);
     return true;
   } catch {
     return false;
@@ -46,9 +49,22 @@ export const clearStoredAccessToken = () => {
     return;
   }
 
+  setServiceWorkerAccessToken(undefined);
   try {
     localStorage.removeItem(ACCESS_TOKEN_STORAGE_KEY);
   } catch {
     // 忽略不可用的本地存储。
+  }
+};
+
+export const getStoredAccessToken = () => {
+  if (!browser) {
+    return;
+  }
+
+  try {
+    return localStorage.getItem(ACCESS_TOKEN_STORAGE_KEY) || undefined;
+  } catch {
+    return;
   }
 };
