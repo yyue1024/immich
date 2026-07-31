@@ -11,6 +11,7 @@ import { goto } from '$app/navigation';
 import { page } from '$app/state';
 import { eventManager } from '$lib/managers/event-manager.svelte';
 import { Route } from '$lib/route';
+import { clearStoredAccessToken, loadStoredAccessToken } from '$lib/utils/access-token';
 import { isSharedLinkRoute } from '$lib/utils/navigation';
 
 class AuthManager {
@@ -52,7 +53,7 @@ class AuthManager {
       return;
     }
 
-    if (!this.#hasAuthCookie()) {
+    if (!this.#hasAuthCookie() && !loadStoredAccessToken()) {
       return;
     }
 
@@ -105,6 +106,7 @@ class AuthManager {
       this.isPurchased = false;
 
       this.reset();
+      clearStoredAccessToken();
       eventManager.emit('AuthLogout');
 
       await goto(redirectUri);

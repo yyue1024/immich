@@ -1,11 +1,13 @@
 <script lang="ts">
   import { goto } from '$app/navigation';
   import AuthPageLayout from '$lib/components/layouts/AuthPageLayout.svelte';
+  import { authManager } from '$lib/managers/auth-manager.svelte';
   import { eventManager } from '$lib/managers/event-manager.svelte';
   import { featureFlagsManager } from '$lib/managers/feature-flags-manager.svelte';
   import { serverConfigManager } from '$lib/managers/server-config-manager.svelte';
   import { Route } from '$lib/route';
   import { oauth } from '$lib/utils';
+  import { clearStoredAccessToken, setStoredAccessToken } from '$lib/utils/access-token';
   import { getServerErrorMessage, handleError } from '$lib/utils/handle-error';
   import { login, type LoginResponseDto } from '@immich/sdk';
   import { Alert, Button, Field, Input, PasswordInput, Stack } from '@immich/ui';
@@ -29,8 +31,15 @@
   const serverConfig = $derived(serverConfigManager.value);
 
   const onSuccess = async (user: LoginResponseDto) => {
-    await goto(data.continueUrl, { invalidateAll: true });
+    setStoredAccessToken(user.accessToken);
+    await authManager.refresh();
+    if (!authManager.authenticated) {
+      clearStoredAccessToken();
+      throw new Error($t('errors.unable_to_refresh_user'));
+    }
+
     eventManager.emit('AuthLogin', user);
+    await goto(data.continueUrl, { invalidateAll: true });
   };
 
   const onFirstLogin = () => goto(Route.changePassword());
